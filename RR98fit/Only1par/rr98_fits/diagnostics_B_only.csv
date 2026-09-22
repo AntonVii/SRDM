@@ -1,0 +1,4 @@
+participant_id,model,n_divergent,pct_divergent,mean_treedepth,max_treedepth,mean_n_leapfrog,max_rhat,min_ess_bulk
+jf,B_only,0,0.0,5.843,8.0,68.817,1.0042,678.909
+kr,B_only,0,0.0,5.792,7.0,66.734,1.00504,1035.41
+nh,B_only,0,0.0,5.96375,7.0,77.354,1.00478,1097.02

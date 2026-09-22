@@ -1,0 +1,123 @@
+data {
+  int N_correct;
+  int N_false;
+
+  vector[N_correct] rt_correct;
+  vector[N_false] rt_false;
+
+  // SAT condition index per trial, values in 1..3 (speed/neutral/accuracy)
+  array[N_correct] int<lower=1,upper=3> cond_correct;
+  array[N_false] int<lower=1,upper=3> cond_false;
+
+  vector<lower=0>[3] max_rt;  // uniform lapse range, per condition
+  vector<lower=0>[3] t0_hi;   // 5th-percentile RT per condition, upper bound for t0
+}
+
+
+transformed data {
+  real t0_blend_width = 0.03; // fixed constant, not estimated
+}
+
+
+parameters {
+  vector[3] c;
+  vector<lower=0, upper=t0_hi>[3] t0;
+
+  real<lower=0> d;
+  real<lower=0.05> r;
+  real<lower=0> B;
+  real<lower=0,upper=1> p_lapse;
+}
+
+
+transformed parameters {
+  vector[3] pk = fmin(fmax(Phi(d/2 - c), 1e-6), 1 - 1e-6);
+  vector[3] pf = fmin(fmax(Phi(-d/2 - c), 1e-6), 1 - 1e-6);
+
+  vector[3] vk = pk * r;
+  vector[3] vf = pf * r;
+
+  vector[3] sigma_k = fmax(sqrt(pk .* (1 - pk) * r), 0.05);
+  vector[3] sigma_f = fmax(sqrt(pf .* (1 - pf) * r), 0.05);
+}
+
+
+model {
+  // priors - independent, single participant
+  t0 ~ normal(0.2, 0.15);
+  d ~ normal(1.5, 0.5);       // reference doc: d' mean ~1.5
+  c ~ normal(0, 0.5);
+  B ~ exponential(1);         // mean 1, reference doc: B ~0.8-1.7 non-degenerate
+  r ~ gamma(9, 2);            // mean 4.5, reference doc: r mean ~4.5
+  p_lapse ~ beta(1, 50);      // favors small lapse rates (mean ~2%)
+
+  // -----------------------
+  // Correct trials
+  // -----------------------
+  {
+    vector[N_correct] t0_trial = t0[cond_correct];
+    vector[N_correct] vk_trial = vk[cond_correct];
+    vector[N_correct] vf_trial = vf[cond_correct];
+    vector[N_correct] sigma_k_trial = sigma_k[cond_correct];
+    vector[N_correct] sigma_f_trial = sigma_f[cond_correct];
+    vector[N_correct] lapse_lp = -log(max_rt[cond_correct]);
+
+    vector[N_correct] t_raw = rt_correct - t0_trial;
+    vector[N_correct] t_safe = fmax(t_raw, 1e-6);
+
+    vector[N_correct] f_correct =
+      B ./ (sigma_k_trial .* sqrt(2*pi()*pow(t_safe,3)))
+      .* exp(-(B - vk_trial .* t_safe).^2 ./ (2*sigma_k_trial.^2 .* t_safe));
+
+    vector[N_correct] F_false =
+      Phi((vf_trial .* t_safe - B) ./ (sigma_f_trial .* sqrt(t_safe)))
+      + exp(fmin((2*B .* vf_trial) ./ sigma_f_trial.^2, 700))
+      .* Phi(-(vf_trial .* t_safe + B) ./ (sigma_f_trial .* sqrt(t_safe)));
+
+    vector[N_correct] sdt_lp = log(f_correct) + log1m(F_false);
+
+    for (i in 1:N_correct) {
+      real log_w   = log_inv_logit(t_raw[i] / t0_blend_width);
+      real log_1mw = log_inv_logit(-t_raw[i] / t0_blend_width);
+      target += log_sum_exp(
+        log_w   + log_mix(p_lapse, lapse_lp[i], sdt_lp[i]),
+        log_1mw + log(p_lapse) + lapse_lp[i]
+      );
+    }
+  }
+
+  // -----------------------
+  // False trials
+  // -----------------------
+  {
+    vector[N_false] t0_trial = t0[cond_false];
+    vector[N_false] vk_trial = vk[cond_false];
+    vector[N_false] vf_trial = vf[cond_false];
+    vector[N_false] sigma_k_trial = sigma_k[cond_false];
+    vector[N_false] sigma_f_trial = sigma_f[cond_false];
+    vector[N_false] lapse_lp = -log(max_rt[cond_false]);
+
+    vector[N_false] t_raw = rt_false - t0_trial;
+    vector[N_false] t_safe = fmax(t_raw, 1e-6);
+
+    vector[N_false] f_false =
+      B ./ (sigma_f_trial .* sqrt(2*pi()*pow(t_safe,3)))
+      .* exp(-(B - vf_trial .* t_safe).^2 ./ (2*sigma_f_trial.^2 .* t_safe));
+
+    vector[N_false] F_correct =
+      Phi((vk_trial .* t_safe - B) ./ (sigma_k_trial .* sqrt(t_safe)))
+      + exp(fmin((2*B .* vk_trial) ./ sigma_k_trial.^2, 700))
+      .* Phi(-(vk_trial .* t_safe + B) ./ (sigma_k_trial .* sqrt(t_safe)));
+
+    vector[N_false] sdt_lp = log(f_false) + log1m(F_correct);
+
+    for (i in 1:N_false) {
+      real log_w   = log_inv_logit(t_raw[i] / t0_blend_width);
+      real log_1mw = log_inv_logit(-t_raw[i] / t0_blend_width);
+      target += log_sum_exp(
+        log_w   + log_mix(p_lapse, lapse_lp[i], sdt_lp[i]),
+        log_1mw + log(p_lapse) + lapse_lp[i]
+      );
+    }
+  }
+}

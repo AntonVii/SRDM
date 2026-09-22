@@ -1,0 +1,16 @@
+pair,participant_id,condition,pearson_r,n_draws
+B_vs_r,jf,n/a (scalar),0.6542245464506297,4000
+B_vs_r,kr,n/a (scalar),0.7608290247668963,4000
+B_vs_r,nh,n/a (scalar),0.6967841496017632,4000
+c_vs_B,jf,accuracy,-0.07674033784624429,4000
+c_vs_B,jf,speed,-0.1103189919753468,4000
+c_vs_B,kr,accuracy,-0.3288558195433019,4000
+c_vs_B,kr,speed,-0.2850298309316765,4000
+c_vs_B,nh,accuracy,-0.17855605469543706,4000
+c_vs_B,nh,speed,-0.16761999741072175,4000
+c_vs_t0,jf,accuracy,0.4682638707372454,4000
+c_vs_t0,jf,speed,0.7885663442403326,4000
+c_vs_t0,kr,accuracy,0.4313567477264026,4000
+c_vs_t0,kr,speed,0.7393785663547727,4000
+c_vs_t0,nh,accuracy,0.5493072702061962,4000
+c_vs_t0,nh,speed,0.7613872589894898,4000
